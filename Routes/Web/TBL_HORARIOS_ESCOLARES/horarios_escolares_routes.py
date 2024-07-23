@@ -115,3 +115,19 @@ def update_horario_escolar(id):
     except Exception as e:
         app.logger.error(f"Error inesperado: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
+# Ruta para eliminar un horario escolar
+@horarios_escolares_bp.route('/horarios_escolares/delete/<int:id>', methods=['DELETE'])
+def delete_horario_escolar(id):
+    try:
+        horario = TBL_HORARIOS_ESCOLARES.query.get(id)
+        if not horario:
+            return jsonify({'error': 'Horario no encontrado'}), 404
+
+        db.session.delete(horario)
+        db.session.commit()
+        return jsonify({'message': 'Horario eliminado exitosamente'}), 200
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
