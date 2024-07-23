@@ -1,5 +1,5 @@
 from flask import Blueprint, app, jsonify, request
-from Database.Database import  TBL_USUARIOS, db, TBL_ASIGNATURAS, TBL_CARRERAS_TECNICAS, TBL_DOCENTES, TBL_GRADOS, TBL_GRUPOS, TBL_HORARIOS_ESCOLARES
+from Database.Database import   TBL_ALUMNOS, TBL_HORARIO_ALUMNOS, db, TBL_ASIGNATURAS, TBL_CARRERAS_TECNICAS, TBL_DOCENTES, TBL_GRADOS, TBL_GRUPOS, TBL_HORARIOS_ESCOLARES
 from sqlalchemy.exc import SQLAlchemyError
 
 horarios_escolares_bp = Blueprint('horarios_escolares_bp', __name__)
@@ -169,6 +169,105 @@ def get_horarios_by_docente(id_usuario):
             'ciclo_escolar': horario.ciclo_escolar,
             'dias_horarios': eval(horario.dias_horarios) if horario.dias_horarios else []
         } for horario in horarios]
+
+        return jsonify(result), 200
+    except SQLAlchemyError as e:
+        return jsonify({'error': str(e)}), 500
+
+
+
+# Ruta para agregar un alumno a un horario específico
+@horarios_escolares_bp.route('/horarios_escolares/<int:id_horario>/agregar_alumno', methods=['POST'])
+def add_alumno_to_horario(id_horario):
+    data = request.get_json()
+    nocontrol_alumno = data.get('nocontrol_alumno')
+
+    if not nocontrol_alumno:
+        return jsonify({'error': 'El número de control del alumno es obligatorio'}), 400
+
+    try:
+        alumno = TBL_ALUMNOS.query.filter_by(nocontrol_alumnos=nocontrol_alumno).first()
+        if not alumno:
+            return jsonify({'error': 'Alumno no encontrado'}), 404
+
+        # Verificar si el alumno ya está inscrito en el horario
+        existing_record = TBL_HORARIO_ALUMNOS.query.filter_by(id_horario=id_horario, id_alumno=alumno.id_alumnos).first()
+        if existing_record:
+            return jsonify({'error': 'El alumno ya está inscrito en este horario'}), 409
+
+        # Agregar el alumno al horario
+        nuevo_horario_alumno = TBL_HORARIO_ALUMNOS(id_horario=id_horario, id_alumno=alumno.id_alumnos)
+        db.session.add(nuevo_horario_alumno)
+        db.session.commit()
+
+        return jsonify({'message': 'Alumno agregado exitosamente al horario'}), 201
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+    
+# Ruta para obtener los alumnos de un horario específico
+@horarios_escolares_bp.route('/alumnos/horario/<int:id_horario>', methods=['GET'])
+def get_alumnos_by_horario(id_horario):
+    try:
+        alumnos = db.session.query(
+            TBL_ALUMNOS.id_alumnos,
+            TBL_ALUMNOS.nombre_alumnos,
+            TBL_ALUMNOS.app_alumnos,
+            TBL_ALUMNOS.apm_alumnos,
+            TBL_ALUMNOS.nocontrol_alumnos
+        ).join(TBL_HORARIO_ALUMNOS, TBL_ALUMNOS.id_alumnos == TBL_HORARIO_ALUMNOS.id_alumno)\
+         .filter(TBL_HORARIO_ALUMNOS.id_horario == id_horario).all()
+
+        if not alumnos:
+            return jsonify([]), 200
+
+        result = [{
+            'id_alumno': alumno.id_alumnos,
+            'nombre_alumno': alumno.nombre_alumnos,
+            'app_alumno': alumno.app_alumnos,
+            'apm_alumno': alumno.apm_alumnos,
+            'nocontrol_alumno': alumno.nocontrol_alumnos
+        } for alumno in alumnos]
+
+        return jsonify(result), 200
+    except SQLAlchemyError as e:
+        return jsonify({'error': str(e)}), 500
+    
+@horarios_escolares_bp.route('/horarios_escolares/alumno/<int:id_alumno>', methods=['GET'])
+def get_horario_by_alumno(id_alumno):
+    try:
+        horario_alumno = db.session.query(
+            TBL_HORARIOS_ESCOLARES.id_horario,
+            TBL_ASIGNATURAS.nombre_asignatura,
+            TBL_DOCENTES.nombre_docentes,
+            TBL_DOCENTES.app_docentes,
+            TBL_DOCENTES.apm_docentes,
+            TBL_GRADOS.nombre_grado,
+            TBL_GRUPOS.nombre_grupos,
+            TBL_CARRERAS_TECNICAS.nombre_carrera_tecnica,
+            TBL_HORARIOS_ESCOLARES.ciclo_escolar,
+            TBL_HORARIOS_ESCOLARES.dias_horarios
+        ).join(TBL_ASIGNATURAS, TBL_ASIGNATURAS.id_asignatura == TBL_HORARIOS_ESCOLARES.id_asignatura)\
+         .join(TBL_DOCENTES, TBL_DOCENTES.id_docentes == TBL_HORARIOS_ESCOLARES.id_docente)\
+         .join(TBL_GRADOS, TBL_GRADOS.id_grado == TBL_HORARIOS_ESCOLARES.id_grado)\
+         .join(TBL_GRUPOS, TBL_GRUPOS.id_grupos == TBL_HORARIOS_ESCOLARES.id_grupo)\
+         .join(TBL_CARRERAS_TECNICAS, TBL_CARRERAS_TECNICAS.id_carrera_tecnica == TBL_HORARIOS_ESCOLARES.id_carrera_tecnica)\
+         .join(TBL_HORARIO_ALUMNOS, TBL_HORARIO_ALUMNOS.id_horario == TBL_HORARIOS_ESCOLARES.id_horario)\
+         .filter(TBL_HORARIO_ALUMNOS.id_alumno == id_alumno).all()
+
+        if not horario_alumno:
+            return jsonify({'error': 'Horario no encontrado para el alumno'}), 404
+
+        result = [{
+            'id_horario': horario.id_horario,
+            'nombre_asignatura': horario.nombre_asignatura,
+            'nombre_docente': f"{horario.nombre_docentes} {horario.app_docentes} {horario.apm_docentes}",
+            'nombre_grado': horario.nombre_grado,
+            'nombre_grupo': horario.nombre_grupos,
+            'nombre_carrera_tecnica': horario.nombre_carrera_tecnica,
+            'ciclo_escolar': horario.ciclo_escolar,
+            'dias_horarios': eval(horario.dias_horarios) if horario.dias_horarios else []
+        } for horario in horario_alumno]
 
         return jsonify(result), 200
     except SQLAlchemyError as e:
