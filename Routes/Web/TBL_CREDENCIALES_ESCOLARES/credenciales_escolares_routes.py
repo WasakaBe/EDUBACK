@@ -97,3 +97,23 @@ def update_credencial_escolar(id):
     except Exception as e:
         app.logger.error(f"Unexpected error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
+# Ruta para eliminar una credencial escolar
+@credenciales_escolares_bp.route('/credencial_escolar/delete/<int:id>', methods=['DELETE'])
+def delete_credencial_escolar(id):
+    try:
+        credencial = TBL_CREDENCIALES_ESCOLARES.query.get(id)
+        if not credencial:
+            return jsonify({'error': 'Credencial escolar no encontrada'}), 404
+
+        db.session.delete(credencial)
+        db.session.commit()
+        return jsonify({'message': 'Credencial escolar eliminada exitosamente'}), 200
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        app.logger.error(f"Error al eliminar la credencial escolar: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+    except Exception as e:
+        app.logger.error(f"Unexpected error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
