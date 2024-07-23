@@ -8,6 +8,7 @@ from waitress import serve
 from dotenv import load_dotenv
 from Database.Database import db
 
+
 # Importa y registra los blueprints después de inicializar db
 from Routes.Web.TBL_TIPO_ROL.tipo_rol_routes import tipo_rol_bp
 from Routes.Web.TBL_SEXOS.sexos_routes import sexos_bp
@@ -42,14 +43,15 @@ from Routes.Web.TBL_INFO_INSCRIPTION.info_inscription_routes import info_inscrip
 from Routes.Web.TBL_ACTIVIDADES_CULTURALES.actividades_culturales_routes import actividades_culturales_bp
 from Routes.Web.TBL_SOBRE_NOSOTROS.sobre_nosotros_routes import sobre_nosotros_bp
 from Routes.Web.TBL_INFO_BECAS.info_becas_routes import info_becas_bp
+
+
 #?: LOGIN - REGISTRO - RECUPERACION - FORMULARIOS
 from Routes.Auth.AuthLogin.auth_routes import auth_bp
 from Routes.Auth.AuthRegister.register_routes import register_bp
 from Routes.Auth.AuthForgout.password_reset_routes import password_reset_bp
 #?: WEAR
 from Routes.Wear.wear  import wear_bp
-#?: PERFIL DEL USUARIO
-from Routes.Profile.profile_routes import profile_bp
+
 # Cargar las variables de entorno
 load_dotenv()
 
@@ -116,7 +118,6 @@ app.register_blueprint(sobre_nosotros_bp, url_prefix='/api')
 app.register_blueprint(auth_bp, url_prefix='/api')
 app.register_blueprint(register_bp, url_prefix='/api')
 app.register_blueprint(password_reset_bp, url_prefix='/api')
-app.register_blueprint(profile_bp, url_prefix='/api')
 app.register_blueprint(credenciales_escolares_bp, url_prefix='/api')
 app.register_blueprint(info_becas_bp,url_prefix='/api')
 app.register_blueprint(wear_bp)

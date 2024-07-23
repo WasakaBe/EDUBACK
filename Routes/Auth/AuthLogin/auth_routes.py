@@ -6,6 +6,7 @@ from datetime import datetime
 from flask import Blueprint, jsonify, request
 from Database.Database import db, TBL_USUARIOS, BITACORA_SESION,TBL_TIPO_ROL
 from sqlalchemy.exc import SQLAlchemyError
+from base64 import b64encode, b64decode
 
 auth_bp = Blueprint('auth_bp', __name__)
 
@@ -81,8 +82,13 @@ def login():
         'tbl_users': {
             'id_usuario': user.id_usuario,
             'nombre_usuario': user.nombre_usuario,
+            'app_usuario': user.app_usuario,
+            'apm_usuario': user.apm_usuario,
+            'phone_usuario': user.phone_usuario,
+            'correo_usuario': user.correo_usuario,
+            'pwd_usuario': user.pwd_usuario,
             'idRol': user.idRol,
-            'pwd_usuario': user.pwd_usuario
+            'foto_usuario': b64encode(user.foto_usuario).decode('utf-8') if user.foto_usuario else None
         }
     }), 200
 
@@ -133,3 +139,39 @@ def get_user_alexa():
             'correo_usuario': user_data.correo_usuario
         }), 200
     return jsonify({'error': 'Usuario no encontrado'}), 404
+
+
+# Ruta para actualizar el perfil del usuario
+@auth_bp.route('/update-profile/<int:id>', methods=['PUT'])
+def update_profile(id):
+    data = request.get_json()
+    usuario = TBL_USUARIOS.query.get(id)
+
+    if not usuario:
+        return jsonify({'error': 'Usuario no encontrado'}), 404
+
+    nombre_usuario = data.get('nombre_usuario')
+    app_usuario = data.get('app_usuario')
+    apm_usuario = data.get('apm_usuario')
+    correo_usuario = data.get('correo_usuario')
+    pwd_usuario = data.get('pwd_usuario')
+    foto_usuario = data.get('foto_usuario')
+
+    if not nombre_usuario or not app_usuario or not correo_usuario or not pwd_usuario:
+        return jsonify({'error': 'Los campos obligatorios no pueden estar vacíos'}), 400
+
+    usuario.nombre_usuario = nombre_usuario
+    usuario.app_usuario = app_usuario
+    usuario.apm_usuario = apm_usuario
+    usuario.correo_usuario = correo_usuario
+    usuario.pwd_usuario = pwd_usuario
+
+    if foto_usuario:
+        usuario.foto_usuario = b64decode(foto_usuario.encode('utf-8'))
+
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Perfil actualizado exitosamente'}), 200
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        return jsonify({'error': 'Error al actualizar el perfil: ' + str(e)}), 500
