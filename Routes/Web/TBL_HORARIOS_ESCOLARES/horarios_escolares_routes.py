@@ -1,5 +1,5 @@
 from flask import Blueprint, app, jsonify, request
-from Database.Database import  db, TBL_ASIGNATURAS, TBL_CARRERAS_TECNICAS, TBL_DOCENTES, TBL_GRADOS, TBL_GRUPOS, TBL_HORARIOS_ESCOLARES
+from Database.Database import  TBL_USUARIOS, db, TBL_ASIGNATURAS, TBL_CARRERAS_TECNICAS, TBL_DOCENTES, TBL_GRADOS, TBL_GRUPOS, TBL_HORARIOS_ESCOLARES
 from sqlalchemy.exc import SQLAlchemyError
 
 horarios_escolares_bp = Blueprint('horarios_escolares_bp', __name__)
@@ -130,4 +130,46 @@ def delete_horario_escolar(id):
         return jsonify({'message': 'Horario eliminado exitosamente'}), 200
     except SQLAlchemyError as e:
         db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@horarios_escolares_bp.route('/horarios_escolares/docente/<int:id_usuario>', methods=['GET'])
+def get_horarios_by_docente(id_usuario):
+    try:
+        docente = TBL_DOCENTES.query.filter_by(idUsuario=id_usuario).first()
+        if not docente:
+            return jsonify({'error': 'Docente no encontrado'}), 404
+
+        horarios = db.session.query(
+            TBL_HORARIOS_ESCOLARES.id_horario,
+            TBL_ASIGNATURAS.nombre_asignatura,
+            TBL_DOCENTES.nombre_docentes,
+            TBL_DOCENTES.app_docentes,
+            TBL_DOCENTES.apm_docentes,
+            TBL_GRADOS.nombre_grado,
+            TBL_GRUPOS.nombre_grupos,
+            TBL_CARRERAS_TECNICAS.nombre_carrera_tecnica,
+            TBL_HORARIOS_ESCOLARES.ciclo_escolar,
+            TBL_HORARIOS_ESCOLARES.dias_horarios
+        ).join(TBL_ASIGNATURAS, TBL_ASIGNATURAS.id_asignatura == TBL_HORARIOS_ESCOLARES.id_asignatura)\
+         .join(TBL_DOCENTES, TBL_DOCENTES.id_docentes == TBL_HORARIOS_ESCOLARES.id_docente)\
+         .join(TBL_GRADOS, TBL_GRADOS.id_grado == TBL_HORARIOS_ESCOLARES.id_grado)\
+         .join(TBL_GRUPOS, TBL_GRUPOS.id_grupos == TBL_HORARIOS_ESCOLARES.id_grupo)\
+         .join(TBL_CARRERAS_TECNICAS, TBL_CARRERAS_TECNICAS.id_carrera_tecnica == TBL_HORARIOS_ESCOLARES.id_carrera_tecnica)\
+         .filter(TBL_HORARIOS_ESCOLARES.id_docente == docente.id_docentes)\
+         .all()
+
+        result = [{
+            'id_horario': horario.id_horario,
+            'nombre_asignatura': horario.nombre_asignatura,
+            'nombre_docente': f"{horario.nombre_docentes} {horario.app_docentes} {horario.apm_docentes}",
+            'nombre_grado': horario.nombre_grado,
+            'nombre_grupo': horario.nombre_grupos,
+            'nombre_carrera_tecnica': horario.nombre_carrera_tecnica,
+            'ciclo_escolar': horario.ciclo_escolar,
+            'dias_horarios': eval(horario.dias_horarios) if horario.dias_horarios else []
+        } for horario in horarios]
+
+        return jsonify(result), 200
+    except SQLAlchemyError as e:
         return jsonify({'error': str(e)}), 500

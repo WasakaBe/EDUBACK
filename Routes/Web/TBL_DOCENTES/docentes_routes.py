@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from flask import Blueprint, jsonify, request
-from Database.Database import db, TBL_DOCENTES, BITACORA_USUARIOS
+from Database.Database import TBL_CLINICAS, TBL_SEXOS, TBL_USUARIOS, db, TBL_DOCENTES, BITACORA_USUARIOS
 from sqlalchemy.exc import SQLAlchemyError
 from base64 import b64encode, b64decode
 
@@ -215,3 +215,40 @@ def delete_docente(id):
     except SQLAlchemyError as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+@docentes_bp.route('/docente/usuario/<int:id_usuario>', methods=['GET'])
+def get_docente_by_usuario(id_usuario):
+    docente = db.session.query(
+        TBL_DOCENTES, 
+        TBL_SEXOS.nombre_sexo, 
+        TBL_CLINICAS.nombre_clinicas, 
+        TBL_USUARIOS.foto_usuario  # Añadir foto del usuario
+    )\
+    .join(TBL_SEXOS, TBL_DOCENTES.idSexo == TBL_SEXOS.id_sexos)\
+    .join(TBL_CLINICAS, TBL_DOCENTES.idClinica == TBL_CLINICAS.id_clinicas)\
+    .join(TBL_USUARIOS, TBL_DOCENTES.idUsuario == TBL_USUARIOS.id_usuario)\
+    .filter(TBL_DOCENTES.idUsuario == id_usuario).first()
+        
+    if not docente:
+        return jsonify({'error': 'Docente no encontrado'}), 404
+    
+    docente_data = docente[0]  # Datos del docente
+    nombre_sexo = docente[1]  # Nombre del sexo
+    nombre_clinica = docente[2]  # Nombre de la clínica
+    foto_usuario = docente[3]  # Foto del usuario
+
+    return jsonify({
+        'id_docentes': docente_data.id_docentes,
+        'nombre_docentes': docente_data.nombre_docentes,
+        'app_docentes': docente_data.app_docentes,
+        'apm_docentes': docente_data.apm_docentes,
+        'foto_docentes': b64encode(foto_usuario).decode('utf-8') if foto_usuario else None,
+        'fecha_nacimiento_docentes': docente_data.fecha_nacimiento_docentes,
+        'noconttrol_docentes': docente_data.noconttrol_docentes,
+        'telefono_docentes': docente_data.telefono_docentes,
+        'seguro_social_docentes': docente_data.seguro_social_docentes,
+        'sexo': nombre_sexo,  # Incluye el nombre del sexo en la respuesta
+        'clinica': nombre_clinica,  # Incluye el nombre de la clínica en la respuesta
+        'idUsuario': docente_data.idUsuario,
+    }), 200
